@@ -16,10 +16,11 @@ fn main() {
         println!("{}", i);
         // 100번마다 상태 출력
         if i % 100 == 0 {
-            println!("=== Cycle {} Completed ===", i);
+            //println!("=== Cycle {} Completed ===", i);
             // 여기에 전체 블록 상태를 요약해서 보여주는 함수가 있으면 좋음
             // ssd.print_status(); 
         }
     }
+    println!("waf: {}", ssd.get_waf());
     println!("Test Passed! SSD survived.");
 }
