@@ -100,31 +100,66 @@ impl SSD {
     pub fn gc(&mut self) -> Result<(), String> {
         info!("\n[GC] Started! (Free blocks: {})", self.count_free_blocks());
 
+        // 1. Wear Leveling 통계 계산
+        // (compute_wear_metrics 함수가 WearStats { min, max, avg, gap }을 반환한다고 가정)
+        let stat = self.compute_wear_metrics();
+        
+        // =========================================================
+        // [Step 1] 희생 블록(Victim) 선정
+        // =========================================================
+        let victim_idx = if stat.gap > self.gap_threshold {
+            // [Case A] Wear Leveling 트리거!
+            // 가장 지우기 횟수가 적은 블록(Cold Block)을 강제로 희생양으로 삼음
+            info!("[WL] Triggered! Gap: {} (Max: {}, Min: {})", stat.gap, stat.max, stat.min);
+            
+            // stat.min에 해당하는 블록 인덱스를 찾음
+            // (Active Block은 제외해야 함)
+            let mut target = None;
+            for (i, block) in self.blocks.iter().enumerate() {
+                if block.erase_count == stat.min && i != self.active_block_idx {
+                    target = Some(i);
+                    break;
+                }
+            }
+            
+            match target {
+                Some(idx) => {
+                    info!("[WL] Forcing Cold Block {} to be cleaned.", idx);
+                    idx
+                },
+                None => {
+                    // 이론상 여기 오면 안 되지만, 만약 Active Block이 Min이라면 
+                    // 어쩔 수 없이 일반 GC로 넘어감
+                    return Err("WL Triggered but Cold Block is Active".to_string());
+                }
+            }
+        } else {
+            // [Case B] 일반 GC (Greedy Policy)
+            // 유효 페이지(Valid Page)가 가장 적은 블록을 선정
+            let mut target = None;
+            let mut min_valid_count = usize::MAX;
 
-        let mut victim_idx = None;
-        let mut min_valid_count = usize::MAX;
-    
-        for (i, block) in self.blocks.iter().enumerate() {
-            if i == self.active_block_idx || block.state == BlockState::Free {
-                continue;
+            for (i, block) in self.blocks.iter().enumerate() {
+                // 현재 쓰고 있는 블록이나 이미 빈 블록은 제외
+                if i == self.active_block_idx || block.state == BlockState::Free {
+                    continue;
+                }
+
+                let valid_cnt = block.count_valid_pages();
+                if valid_cnt < min_valid_count {
+                    min_valid_count = valid_cnt;
+                    target = Some(i);
+                }
             }
-    
-            let valid_cnt = block.count_valid_pages();
-            if valid_cnt < min_valid_count {
-                min_valid_count = valid_cnt;
-                victim_idx = Some(i);
-            }
-        }
-    
-        let victim_idx = match victim_idx {
-            Some(idx) => idx,
-            None => {
-                return Err("Failed to find victim block!".to_string());
+
+            match target {
+                Some(idx) => idx,
+                None => return Err("Failed to find victim block! (SSD might be clean)".to_string()),
             }
         };
-    
-        debug!("[GC] Selected Victim: Block {} (Valid Pages: {})", victim_idx, min_valid_count);
-    
+
+    let valid_pages_cnt = self.blocks[victim_idx].count_valid_pages();
+    debug!("[GC] Selected Victim: Block {} (Valid Pages: {})", victim_idx, valid_pages_cnt);
         // 2. 유효 페이지 대피 (Migration)
         for page_idx in 0..PAGES_PER_BLOCK {
             let is_valid = self.blocks[victim_idx].pages[page_idx].state == PageState::Valid;

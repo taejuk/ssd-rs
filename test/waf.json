@@ -18,9 +18,5 @@
   {
     "num_blocks": 10,
     "num_lbas": 500
-  },
-  {
-    "num_blocks": 10,
-    "num_lbas": 600
   }
 ]

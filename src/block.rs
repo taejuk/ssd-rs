@@ -3,6 +3,15 @@ use super::page::{Page, PageState};
 
 pub const PAGES_PER_BLOCK: usize = 64;
 
+#[derive(Debug)]
+pub struct WearStats {
+    pub min: u32,
+    pub max: u32,
+    pub avg: f64,
+    pub gap: u32, 
+}
+
+
 #[derive(PartialEq, Eq, Clone, Copy, Debug)]
 pub enum BlockState {
     Free,

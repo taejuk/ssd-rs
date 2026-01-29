@@ -3,7 +3,8 @@ use std::io::BufReader;
 use serde::Deserialize;
 use rand::Rng;
 
-use ssd_rs::ssd_basic::*; 
+use ssd_rs::ssd_basic::SSD as SSD_BASIC; 
+use ssd_rs::ssd_wear_leveling::SSD as SSD_WEAR_LEVELING;
 use ssd_rs::block::PAGES_PER_BLOCK;
 
 #[derive(Deserialize, Debug)]
@@ -20,15 +21,14 @@ fn main() {
     // 2. JSON 파싱 (Vec<TestArg>로 변환)
     let args: Vec<TestArg> = serde_json::from_reader(reader).expect("Failed to parse JSON");
 
-    println!("=== WAF Explosion Experiment Start ===\n");
+    println!("=== Wear leveling Test Explosion Experiment Start ===\n");
 
     // 3. 각 테스트 케이스 실행
     for (i, arg) in args.iter().enumerate() {
         println!(">>> Running Test Case #{}", i + 1);
         
-        // (1) SSD 생성
-        let mut ssd = SSD::new(arg.num_blocks, arg.num_lbas);
-
+        let mut ssd = SSD_BASIC::new(arg.num_blocks, arg.num_lbas);
+        let mut ssd_wear_leveling = SSD_WEAR_LEVELING::new(arg.num_blocks, arg.num_lbas);
         // (2) 환경 정보 계산 및 출력
         let total_physical_pages = arg.num_blocks * PAGES_PER_BLOCK;
         let op_ratio = (total_physical_pages as f64 - arg.num_lbas as f64) / arg.num_lbas as f64 * 100.0;
@@ -37,9 +37,7 @@ fn main() {
         println!("    Physical Pages: {}, Logical Pages: {}", total_physical_pages, arg.num_lbas);
         println!("    Over-Provisioning (OP): {:.2}%", op_ratio);
 
-        // (3) 스트레스 테스트 실행 (Random Write)
-        // WAF를 정확히 보려면 디스크를 꽉 채우고도 한참 더 써야 GC가 계속 돕니다.
-        // 목표: LBA 용량의 약 10배 정도를 랜덤하게 덮어쓰기
+        
         let iterations = arg.num_lbas * 100; 
         let mut rng = rand::thread_rng();
 
@@ -56,12 +54,26 @@ fn main() {
                 println!("\n    [Error] Write failed: {}", e);
                 break;
             }
+
+            if let Err(e) = ssd_wear_leveling.write(target_lba, dummy_data) {
+                println!("\n    [Error] Write failed: {}", e);
+                break;
+            }
+
         }
         
         // (4) 결과 출력 (WAF 확인)
         let waf = ssd.get_waf();
-        println!("    [Result] WAF: {:.4}", waf);
+        println!("    [Result] BASIC");
+        println!("    WAF: {:.4}", waf);
         println!("    Wear Leveling: {:?}", ssd.compute_wear_metrics());
+        
+        let waf_wearleveling = ssd_wear_leveling.get_waf();
+        println!("    [Result] BASIC");
+        println!("    WAF: {:.4}", waf_wearleveling);
+        println!("    Wear Leveling: {:?}", ssd_wear_leveling.compute_wear_metrics());
+        
         println!("----------------------------------------\n");
+
     }
 }
