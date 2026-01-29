@@ -1,7 +1,7 @@
 use std::fmt;
 use super::page::{Page, PageState};
 
-pub const PAGES_PER_BLOCK: usize = 32;
+pub const PAGES_PER_BLOCK: usize = 64;
 
 #[derive(PartialEq, Eq, Clone, Copy, Debug)]
 pub enum BlockState {
