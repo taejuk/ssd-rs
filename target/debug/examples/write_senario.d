@@ -1,0 +1,1 @@
+/Users/kimtaeju/Desktop/ssd-rs/target/debug/examples/write_senario: /Users/kimtaeju/Desktop/ssd-rs/examples/write_senario.rs /Users/kimtaeju/Desktop/ssd-rs/src/block.rs /Users/kimtaeju/Desktop/ssd-rs/src/lib.rs /Users/kimtaeju/Desktop/ssd-rs/src/mapping.rs /Users/kimtaeju/Desktop/ssd-rs/src/page.rs
